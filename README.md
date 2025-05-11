@@ -51,6 +51,8 @@ MyFirstAgent/
 ├── evaluate.py
 ├── submissionagent.py
 ├── submission-manifest.yaml
+├── output/
+│-- requirements.txt
 └── README.md
 ```
 
@@ -90,10 +92,22 @@ diambra run -r /path/to/roms python evaluate.py --cfgFile /path/to/cfg_files/sfi
 
 To submit your agent to Diambra:
 
+
+
 ```bash
-diambra agent submit --submission.secret token=YOUR_GITHUB_TOKEN --submission.manifest submission-manifest.yaml
+diambra agent init ./output/models/
 ```
 
+```bash
+cd ./output/models/
+```
+```bash
+pip install -r requirements.txt
+```
+```bash
+diambra agent submit --submission.difficulty hard .
+
+```
 ## Configuration Options
 
 The agent's behavior and training parameters can be customized in the `cfg_files/sfiii3n/sr6_128x4_das_nc.yaml` file:

@@ -1,0 +1,9 @@
+diambra-arena>=2.2.7
+diambra>=0.0.20,
+numpy==1.23.0
+pyyaml
+diambra
+diambra-arena==2.2.7
+stable-baselines3
+torch
+numpy
