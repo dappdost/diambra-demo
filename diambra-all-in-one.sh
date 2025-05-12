@@ -261,15 +261,24 @@ else
     echo "${green}Virtual environment is using $VENV_PYTHON_VERSION${normal}"
 fi
 
+
 # Install Python dependencies
 echo "Installing required Python packages..."
 python -m pip install --upgrade pip
-python -m pip install wheel
+python -m pip install wheel setuptools
 python -m pip install numpy==1.23
+python -m pip install "gym<0.27.0,>=0.21.0"
+python -m pip install torch pyyaml
 python -m pip install diambra
 python -m pip install diambra-arena
 python -m pip install "diambra-arena[stable-baselines3]"
 
+# Verify critical packages are installed
+echo "Verifying key packages..."
+python -c "import numpy; print(f'NumPy version: {numpy.__version__}')" || { echo "${red}${bold}ERROR: NumPy installation failed.${normal}"; exit 1; }
+python -c "import gym; print(f'Gym version: {gym.__version__}')" || { echo "${red}${bold}ERROR: Gym installation failed.${normal}"; exit 1; }
+python -c "import diambra.arena; print('Diambra Arena installed')" || { echo "${red}${bold}ERROR: Diambra Arena installation failed.${normal}"; exit 1; }
+python -c "import stable_baselines3; print(f'Stable Baselines 3 version: {stable_baselines3.__version__}')" || { echo "${red}${bold}ERROR: Stable Baselines 3 installation failed.${normal}"; exit 1; }
 # Verify Diambra CLI is installed
 if ! command -v diambra &> /dev/null; then
     echo "${red}${bold}ERROR: Diambra CLI is not in PATH even after installation.${normal}"

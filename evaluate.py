@@ -1,73 +1,72 @@
 import os
-import sys
 import yaml
+import json
 import argparse
-import numpy as np
-from stable_baselines3 import PPO
-import gym
-import diambra.arena
-from diambra.arena.stable_baselines3.make_sb3_env import make_sb3_env, EnvironmentSettings, WrappersSettings
 from diambra.arena import load_settings_flat_dict, SpaceTypes
+from diambra.arena.stable_baselines3.make_sb3_env import make_sb3_env, EnvironmentSettings, WrappersSettings
+from stable_baselines3.common.evaluation import evaluate_policy
+from stable_baselines3 import PPO
 
-def parse_args():
+# diambra run -s 8 python stable_baselines3/training.py --cfgFile $PWD/stable_baselines3/cfg_files/sfiii3n/sr6_128x4_das_nc.yaml
+
+def main(cfg_file, model_file):
+    # Read the cfg file
+    yaml_file = open(cfg_file)
+    params = yaml.load(yaml_file, Loader=yaml.FullLoader)
+    print("Config parameters = ", json.dumps(params, sort_keys=True, indent=4))
+    yaml_file.close()
+
+    # Settings
+    params["settings"]["action_space"] = SpaceTypes.DISCRETE if params["settings"]["action_space"] == "discrete" else SpaceTypes.MULTI_DISCRETE
+    settings = load_settings_flat_dict(EnvironmentSettings, params["settings"])
+
+    # Wrappers Settings
+    wrappers_settings = load_settings_flat_dict(WrappersSettings, params["wrappers_settings"])
+
+    # Create environment
+    env, num_envs = make_sb3_env(settings.game_id, settings, wrappers_settings,render_mode="human")
+
+    env.render_mode="human"
+    
+    print("Activated {} environment(s)".format(num_envs))
+
+    agent = PPO.load(model_file)
+
+    # Evaluate the agent
+    # NOTE: If you use wrappers with your environment that modify rewards,
+    #       this will be reflected here. To evaluate with original rewards,
+    #       wrap environment in a "Monitor" wrapper before other wrappers.
+    mean_reward, std_reward = evaluate_policy(agent, env, deterministic=False, n_eval_episodes=10)
+    print("Reward: {} (avg) ± {} (std)".format(mean_reward, std_reward))
+
+    # Run trained agent
+    observation = env.reset()
+    cumulative_reward = 0
+    while True:
+        env.render()
+
+        action, _state = agent.predict(observation, deterministic=False)
+        observation, reward, done, info = env.step(action)
+
+        cumulative_reward += reward
+        if (reward != 0):
+            print("Cumulative reward =", cumulative_reward)
+
+        if done:
+            observation = env.reset()
+            break
+
+    # Close the environment
+    env.close()
+
+    # Return success
+    return 0
+
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--cfgFile", type=str, required=True, help="Configuration file")
     parser.add_argument("--modelFile", type=str, required=True, help="Model file")
-    parser.add_argument("--numEpisodes", type=int, default=10, help="Number of episodes")
-    return parser.parse_args()
+    opt = parser.parse_args()
+    print(opt)
 
-def main():
-    # Parse arguments
-    args = parse_args()
-
-    # Load configuration
-    with open(args.cfgFile, 'r') as f:
-        cfg = yaml.safe_load(f)
-
-    # Settings
-    cfg["settings"]["action_space"] = SpaceTypes.DISCRETE if cfg["settings"]["action_space"] == "discrete" else SpaceTypes.MULTI_DISCRETE
-    settings = load_settings_flat_dict(EnvironmentSettings, cfg["settings"])
-
-    # Wrappers Settings
-    wrappers_settings = load_settings_flat_dict(WrappersSettings, cfg["wrappers_settings"])
-    
-    # Create environment with recording and rendering
-    wrappers_settings.normalize_reward = False  # For evaluation, use raw rewards
-    env, num_envs = make_sb3_env(settings.game_id, settings, wrappers_settings, render_mode="human")
-    print("Activated {} environment(s)".format(num_envs))
-
-    # Load model
-    model = PPO.load(args.modelFile, env=env)
-
-    # Evaluation loop
-    episode_rewards = []
-    for episode in range(args.numEpisodes):
-        obs = env.reset()
-        done = False
-        total_reward = 0
-        step = 0
-
-        while not done:
-            action, _ = model.predict(obs, deterministic=True)
-            obs, reward, done, info = env.step(action)
-            total_reward += reward
-            step += 1
-            
-            # Print progress
-            if reward != 0:
-                print(f"Step {step}, Reward: {reward}, Total: {total_reward}")
-
-        episode_rewards.append(total_reward)
-        print(f"Episode {episode+1}/{args.numEpisodes}, Total Reward: {total_reward}")
-
-    # Print summary
-    print(f"\nEvaluation Summary:")
-    print(f"Average Reward: {np.mean(episode_rewards):.2f}")
-    print(f"Minimum Reward: {np.min(episode_rewards):.2f}")
-    print(f"Maximum Reward: {np.max(episode_rewards):.2f}")
-
-    # Close environment
-    env.close()
-
-if __name__ == "__main__":
-    main()
+    main(opt.cfgFile, opt.modelFile)
