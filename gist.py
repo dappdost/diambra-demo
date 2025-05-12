@@ -1,34 +1,21 @@
-#!/usr/bin/env python3
+import gym
 import diambra.arena
+from diambra.arena.stable_baselines3.utils import make_env
 
-def main():
-    # Environment creation
-    env = diambra.arena.make("sfiii3n", render_mode="human")
+# Create the environment
+env = make_env(game="sfiii3n", characters=["Ryu"], roles=["P1"], frame_shape=(84, 84))
+env = gym.wrappers.RecordVideo(env, "videos/", step_trigger=lambda x: x % 10000 == 0)
 
-    # Environment reset
-    observation, info = env.reset(seed=42)
+# Initialize environment
+observation = env.reset()
+done = False
 
-    # Agent-Environment interaction loop
-    while True:
-        # (Optional) Environment rendering
-        env.render()
+# Run random agent for 5000 steps
+for _ in range(5000):
+    action = env.action_space.sample()
+    observation, reward, done, info = env.step(action)
+    if done:
+        observation = env.reset()
 
-        # Action random sampling
-        actions = env.action_space.sample()
-
-        # Environment stepping
-        observation, reward, terminated, truncated, info = env.step(actions)
-
-        # Episode end (Done condition) check
-        if terminated or truncated:
-            observation, info = env.reset()
-            break
-
-    # Environment shutdown
-    env.close()
-
-    # Return success
-    return 0
-
-if __name__ == '__main__':
-    main()
+# Close environment
+env.close()

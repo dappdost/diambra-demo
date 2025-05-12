@@ -6,7 +6,8 @@ import numpy as np
 from stable_baselines3 import PPO
 import gym
 import diambra.arena
-from diambra.arena.stable_baselines3.wrappers import SB3Wrapper
+from diambra.arena.stable_baselines3.make_sb3_env import make_sb3_env, EnvironmentSettings, WrappersSettings
+from diambra.arena import load_settings_flat_dict, SpaceTypes
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -21,15 +22,16 @@ def main():
     with open(args.cfgFile, 'r') as f:
         cfg = yaml.safe_load(f)
 
+    # Settings
+    cfg["settings"]["action_space"] = SpaceTypes.DISCRETE if cfg["settings"]["action_space"] == "discrete" else SpaceTypes.MULTI_DISCRETE
+    settings = load_settings_flat_dict(EnvironmentSettings, cfg["settings"])
+
+    # Wrappers Settings
+    wrappers_settings = load_settings_flat_dict(WrappersSettings, cfg["wrappers_settings"])
+    
     # Create environment
-    env = SB3Wrapper(
-        game=cfg["settings"]["game_id"],
-        characters=cfg["settings"]["characters"],
-        roles=["P1"],
-        frame_shape=cfg["settings"]["frame_shape"],
-        step_ratio=cfg["settings"]["step_ratio"],
-        difficulty=cfg["settings"]["difficulty"]
-    )
+    env, num_envs = make_sb3_env(settings.game_id, settings, wrappers_settings, render_mode="human")
+    print("Activated {} environment(s)".format(num_envs))
 
     # Create model
     if cfg["ppo_settings"].get("model_checkpoint", "0") != "0":
@@ -37,7 +39,7 @@ def main():
         print(f"Loaded model from {cfg['ppo_settings']['model_checkpoint']}")
     else:
         model = PPO(
-            "CnnPolicy",
+            "MultiInputPolicy",
             env,
             verbose=1,
             batch_size=cfg["ppo_settings"]["batch_size"],
@@ -50,7 +52,8 @@ def main():
             gae_lambda=0.95,
             max_grad_norm=0.5,
             vf_coef=0.5,
-            device="auto"
+            device="auto",
+            policy_kwargs=cfg["policy_kwargs"]
         )
 
     # Create output directory
